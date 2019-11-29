@@ -213,6 +213,10 @@ impl<U: Send> StorageBackend<U> for Filesystem {
             });
         Box::new(fut)
     }
+
+    fn cwd<P: AsRef<Path>>(&self, _user: &Option<U>, _path: P) -> Box<dyn Future<Item = (), Error = Error> + Send> {
+        Box::new(future::ok(()))
+    }
 }
 
 impl Metadata for std::fs::Metadata {
