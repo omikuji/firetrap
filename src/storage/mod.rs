@@ -255,6 +255,9 @@ pub trait StorageBackend<U: Send> {
 
     /// Delete the given directory.
     fn rmd<P: AsRef<Path>>(&self, user: &Option<U>, path: P) -> Box<dyn Future<Item = (), Error = Error> + Send>;
+
+    /// Cwd the given directory.
+    fn cwd<P: AsRef<Path>>(&self, user: &Option<U>, path: P) -> Box<dyn Future<Item = (), Error = Error> + Send>;
 }
 
 /// StorageBackend that uses a local filesystem, like a traditional FTP server.
