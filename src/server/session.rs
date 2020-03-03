@@ -131,8 +131,12 @@ where
                                         .send(InternalMsg::SendingData)
                                         .map_err(|_| Error::from(ErrorKind::LocalError))
                                         .and_then(|_| tokio_io::io::copy(f, tcp_tls_stream).map_err(|_| Error::from(ErrorKind::LocalError)))
-                                        .and_then(|(bytes, _, _)| {
-                                            tx.send(InternalMsg::SendData { bytes: bytes as i64 })
+                                        .and_then(|(reader, _, writer)| {
+                                            tx.send(InternalMsg::SendData { bytes: reader as i64 })
+                                                .map(|tmp| {
+                                                    tokio::io::shutdown(writer);
+                                                    tmp
+                                                })
                                                 .map_err(|_| Error::from(ErrorKind::LocalError))
                                         })
                                 })
@@ -173,6 +177,7 @@ where
                             storage
                                 .list_fmt(&user, path)
                                 .and_then(|res| tokio::io::copy(res, tcp_tls_stream))
+                                .and_then(|(_, _, writer)| tokio::io::shutdown(writer))
                                 .map_err(|_| Error::from(ErrorKind::LocalError))
                                 .and_then(|_| {
                                     tx_ok
@@ -197,6 +202,7 @@ where
                             storage
                                 .nlst(&user, path)
                                 .and_then(|res| tokio::io::copy(res, tcp_tls_stream))
+                                .and_then(|(_, _, writer)| tokio::io::shutdown(writer))
                                 .map_err(|_| Error::from(ErrorKind::LocalError))
                                 .and_then(|_| {
                                     tx_ok
