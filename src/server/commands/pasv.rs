@@ -30,10 +30,10 @@ where
 {
     fn execute(&self, args: &CommandArgs<S, U>) -> Result<Reply, FTPError> {
         // obtain the ip address the client is connected to
-        let conn_addr = match args.local_addr {
-            std::net::SocketAddr::V4(addr) => addr,
-            std::net::SocketAddr::V6(_) => panic!("we only listen on ipv4, so this shouldn't happen"),
-        };
+        // let conn_addr = match args.local_addr {
+        //     std::net::SocketAddr::V4(addr) => addr,
+        //     std::net::SocketAddr::V6(_) => panic!("we only listen on ipv4, so this shouldn't happen"),
+        // };
 
         let mut rng = rand::thread_rng();
 
@@ -58,9 +58,10 @@ where
             std::net::SocketAddr::V4(addr) => addr,
             std::net::SocketAddr::V6(_) => panic!("we only listen on ipv4, so this shouldn't happen"),
         };
+
         let listener = TcpListener::from_std(listener, &tokio::reactor::Handle::default())?;
 
-        let octets = conn_addr.ip().octets();
+        let octets = args.passive_host.octets();
         let port = addr.port();
         let p1 = port >> 8;
         let p2 = port - (p1 * 256);

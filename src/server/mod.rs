@@ -100,6 +100,7 @@ where
     greeting: &'static str,
     // FIXME: this is an Arc<>, but during call, it effectively creates a clone of Authenticator -> maybe the `Box<(Fn() -> S) + Send>` pattern is better here, too?
     authenticator: Arc<dyn auth::Authenticator<U> + Send + Sync>,
+    passive_host: Arc<std::net::Ipv4Addr>,
     passive_addrs: Arc<Vec<std::net::SocketAddr>>,
     certs_file: Option<PathBuf>,
     key_file: Option<PathBuf>,
@@ -119,10 +120,13 @@ impl Server<Filesystem, AnonymousUser> {
     /// ```
     pub fn with_root<P: Into<PathBuf> + Send + 'static>(path: P) -> Self {
         let p = path.into();
-        Server::new(Box::new(move || {
-            let p = &p.clone();
-            storage::filesystem::Filesystem::new(p)
-        }))
+        Server::new(
+            Box::new(move || {
+                let p = &p.clone();
+                storage::filesystem::Filesystem::new(p)
+            }),
+            "0.0.0.0".parse().unwrap(),
+        )
     }
 }
 
@@ -137,7 +141,7 @@ where
     ///
     /// [`Server`]: struct.Server.html
     /// [`StorageBackend`]: ../storage/trait.StorageBackend.html
-    pub fn new(s: Box<dyn (Fn() -> S) + Send>) -> Self
+    pub fn new(s: Box<dyn (Fn() -> S) + Send>, passive_host: std::net::Ipv4Addr) -> Self
     where
         auth::AnonymousAuthenticator: auth::Authenticator<U>,
     {
@@ -145,6 +149,7 @@ where
             storage: s,
             greeting: DEFAULT_GREETING,
             authenticator: Arc::new(auth::AnonymousAuthenticator {}),
+            passive_host: Arc::new(passive_host),
             passive_addrs: Arc::new(vec![]),
             certs_file: Option::None,
             key_file: Option::None,
@@ -164,6 +169,7 @@ where
             storage: s,
             greeting: DEFAULT_GREETING,
             authenticator: authenticator,
+            passive_host: Arc::new("0.0.0.0".parse().unwrap()),
             passive_addrs: Arc::new(vec![]),
             certs_file: Option::None,
             key_file: Option::None,
@@ -234,6 +240,12 @@ where
             addrs.push(addr);
         }
         self.passive_addrs = Arc::new(addrs);
+        self
+    }
+
+    /// FIXME: For Ninja
+    pub fn passive_host(mut self, host: std::net::Ipv4Addr) -> Self {
+        self.passive_host = Arc::new(host);
         self
     }
 
@@ -344,6 +356,7 @@ where
             .with_metrics(with_metrics);
         let session = Arc::new(Mutex::new(session));
         let (tx, rx) = chancomms::create_internal_msg_channel();
+        let passive_host = self.passive_host.clone();
         let passive_addrs = self.passive_addrs.clone();
 
         let local_addr = tcp_stream.local_addr().unwrap();
@@ -357,6 +370,7 @@ where
             session.clone(),
             authenticator.clone(),
             tls_configured,
+            passive_host.clone(),
             passive_addrs.clone(),
             tx.clone(),
             local_addr,
@@ -443,6 +457,7 @@ where
         session: Arc<Mutex<Session<S, U>>>,
         authenticator: Arc<dyn auth::Authenticator<U> + Send + Sync>,
         tls_configured: bool,
+        passive_host: Arc<std::net::Ipv4Addr>,
         passive_addrs: Arc<Vec<std::net::SocketAddr>>,
         tx: mpsc::Sender<InternalMsg>,
         local_addr: std::net::SocketAddr,
@@ -455,6 +470,7 @@ where
                     session.clone(),
                     authenticator.clone(),
                     tls_configured,
+                    passive_host.clone(),
                     passive_addrs.clone(),
                     tx.clone(),
                     local_addr,
@@ -471,6 +487,7 @@ where
         session: Arc<Mutex<Session<S, U>>>,
         authenticator: Arc<dyn auth::Authenticator<U>>,
         tls_configured: bool,
+        passive_host: Arc<std::net::Ipv4Addr>,
         passive_addrs: Arc<Vec<std::net::SocketAddr>>,
         tx: mpsc::Sender<InternalMsg>,
         local_addr: std::net::SocketAddr,
@@ -481,6 +498,7 @@ where
             session,
             authenticator,
             tls_configured,
+            passive_host,
             passive_addrs,
             tx,
             local_addr,
@@ -666,6 +684,7 @@ where
     session: Arc<Mutex<Session<S, U>>>,
     authenticator: Arc<dyn auth::Authenticator<U>>,
     tls_configured: bool,
+    passive_host: Arc<std::net::Ipv4Addr>,
     passive_addrs: Arc<Vec<std::net::SocketAddr>>,
     tx: mpsc::Sender<InternalMsg>,
     local_addr: std::net::SocketAddr,
