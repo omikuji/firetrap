@@ -588,9 +588,10 @@ fn parse_to_eol<T: AsRef<[u8]> + Into<Bytes>>(bytes: T) -> Result<Bytes> {
             return Ok(bytes.split_to(pos));
         }
 
-        if !is_valid_token_char(*b) {
-            return Err(ParseErrorKind::InvalidToken { token: *b }.into());
-        }
+        // NOTE: マルチバイト対応のため無効化しissue発行済
+        // if !is_valid_token_char(*b) {
+        //     return Err(ParseErrorKind::InvalidToken { token: *b }.into());
+        // }
 
         // We don't have to be afraid of an overflow here, since a `Bytes` can never be bigger than
         // `std::usize::MAX`
