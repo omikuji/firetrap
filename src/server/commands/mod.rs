@@ -462,9 +462,12 @@ impl Command {
                 let file = String::from_utf8_lossy(&params).to_string();
                 // We really match on "/" and not some cross-OS-portable delimiter, because RFC
                 // 3659 actually defines "/" as the standard delimiter.
-                if file.contains('/') {
-                    return Err(ParseErrorKind::InvalidCommand.into());
-                }
+                // NOTE: filezillaでは/が先頭に付いてくる
+                // if file.contains('/') {
+                //     println!("kokodesyo");
+                //
+                //     return Err(ParseErrorKind::InvalidCommand.into());
+                // }
 
                 let file = file.into();
                 Command::Rnto { file }
