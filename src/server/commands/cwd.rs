@@ -50,12 +50,12 @@ where
         tokio::spawn(
             storage
                 .cwd(&session.user, path)
-                .and_then(|_| tx_success.send(InternalMsg::DelSuccess).map_err(|_| Error::from(ErrorKind::LocalError)))
-                .or_else(|e| tx_fail.send(InternalMsg::StorageError(e)))
-                .map(move |_| {
+                .and_then(move |_| {
                     session_arc.lock().unwrap().cwd.push(cwd_path.clone());
-                    ()
+                    tx_success.send(InternalMsg::DelSuccess).map_err(|_| Error::from(ErrorKind::LocalError))
                 })
+                .or_else(|e| tx_fail.send(InternalMsg::StorageError(e)))
+                .map(|_| ())
                 .map_err(|e| {
                     warn!("Failed to cwd directory: {}", e);
                 }),
