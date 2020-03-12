@@ -166,6 +166,31 @@ where
                                 }),
                         );
                     }
+                    Some(ExternalCommand(Command::Mlsd { path, .. })) => {
+                        let path = match path {
+                            Some(path) => cwd.join(path),
+                            None => cwd,
+                        };
+                        let tx_ok = tx.clone();
+                        let tx_error = tx.clone();
+                        tokio::spawn(
+                            storage
+                                .mlsd_fmt(&user, path)
+                                .and_then(|res| tokio::io::copy(res, tcp_tls_stream))
+                                .and_then(|(_, _, writer)| tokio::io::shutdown(writer))
+                                .map_err(|_| Error::from(ErrorKind::LocalError))
+                                .and_then(|_| {
+                                    tx_ok
+                                        .send(InternalMsg::DirectorySuccessfullyListed)
+                                        .map_err(|_| Error::from(ErrorKind::LocalError))
+                                })
+                                .or_else(|e| tx_error.send(InternalMsg::StorageError(e)))
+                                .map(|_| ())
+                                .map_err(|e| {
+                                    warn!("Failed to send directory list: {:?}", e);
+                                }),
+                        );
+                    }
                     Some(ExternalCommand(Command::List { path, .. })) => {
                         let path = match path {
                             Some(path) => cwd.join(path),
