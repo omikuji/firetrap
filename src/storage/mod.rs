@@ -202,6 +202,41 @@ pub trait StorageBackend<U: Send> {
         Box::new(fut)
     }
 
+    /// Returns some bytes that make up a directory listing that can immediately be sent to the client.
+    fn mlsd_fmt<P: AsRef<Path>>(&self, user: &Option<U>, path: P) -> Box<dyn Future<Item = std::io::Cursor<Vec<u8>>, Error = std::io::Error> + Send>
+    where
+        Self::Metadata: Metadata + 'static,
+    {
+        let stream: Box<dyn Stream<Item = Fileinfo<std::path::PathBuf, Self::Metadata>, Error = Error> + Send> = self.list(user, path);
+        let fut = stream
+            .map(|file| {
+                let file_name = file.path.file_name().unwrap_or_else(|| std::ffi::OsStr::new("")).to_str().unwrap_or("");
+                let datetime: DateTime<Utc> = file.metadata.modified().unwrap_or_else(|_| SystemTime::now()).into();
+                let modify = datetime.format("%Y%m%d%H%M%S");
+
+                if file.metadata.is_file() {
+                    format!(
+                        "modify={};perm=adfrw;type=file;size={};UNIX.group=48;UNIX.mode=0644;UNIX.owner=48; {}\r\n",
+                        modify,
+                        file.metadata.len(),
+                        file_name,
+                    )
+                    .into_bytes()
+                } else {
+                    format!(
+                        "modify={};perm=flcdmpe;type=dir;UNIX.group=48;UNIX.mode=0755;UNIX.owner=48; {}\r\n",
+                        modify, file_name,
+                    )
+                    .into_bytes()
+                }
+            })
+            .concat2()
+            .map(std::io::Cursor::new)
+            .map_err(|_| std::io::Error::from(std::io::ErrorKind::Other));
+
+        Box::new(fut)
+    }
+
     /// Returns some bytes that make up a NLST directory listing (only the basename) that can
     /// immediately be sent to the client.
     fn nlst<P: AsRef<Path>>(&self, user: &Option<U>, path: P) -> Box<dyn Future<Item = std::io::Cursor<Vec<u8>>, Error = std::io::Error> + Send>

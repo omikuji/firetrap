@@ -30,6 +30,7 @@ mod help;
 mod list;
 mod mdtm;
 mod mkd;
+mod mlsd;
 mod mode;
 mod nlst;
 mod noop;
@@ -68,6 +69,7 @@ pub use help::Help;
 pub use list::List;
 pub use mdtm::Mdtm;
 pub use mkd::Mkd;
+pub use mlsd::Mlsd;
 pub use mode::{Mode, ModeParam};
 pub use nlst::Nlst;
 pub use noop::Noop;
@@ -153,6 +155,10 @@ pub enum Command {
         /// Arguments passed along with the list command.
         options: Option<String>,
         /// The path of the file/directory the clients wants to list
+        path: Option<String>,
+    },
+    Mlsd {
+        /// The path of the directory the clients wants to list
         path: Option<String>,
     },
     Nlst {
@@ -330,6 +336,16 @@ impl Command {
                     .next();
                 // Note that currently we just throw arguments away.
                 Command::List { options: None, path }
+            }
+            "MLSD" => {
+                let line = parse_to_eol(cmd_params)?;
+                let path = line
+                    .split(|&b| b == b' ')
+                    .filter(|s| !line.is_empty() && !s.starts_with(b"-"))
+                    .map(|s| String::from_utf8_lossy(&s).to_string())
+                    .next();
+                // Note that currently we just throw arguments away.
+                Command::Mlsd { path }
             }
             "NLST" => {
                 let path = parse_to_eol(cmd_params)?;

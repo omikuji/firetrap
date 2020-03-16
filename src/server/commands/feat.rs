@@ -16,7 +16,9 @@ where
     S::Metadata: storage::Metadata,
 {
     fn execute(&self, args: &CommandArgs<S, U>) -> Result<Reply, FTPError> {
-        let mut feat_text = vec![" SIZE", " MDTM", "UTF8"];
+        let mut feat_text = vec![" SIZE", " MDTM", " MLST modify*;perm*;size*;type*;UNIX.group*;UNIX.mode*;UNIX.owner*;", "UTF8"];
+        // " MLST modify*;perm*;size*;type*;unique*;UNIX.group*;UNIX.mode*;UNIX.owner*;",
+
         // Add the features. According to the spec each feature line must be
         // indented by a space.
         if args.tls_configured {

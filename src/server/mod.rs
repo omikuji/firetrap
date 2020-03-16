@@ -521,6 +521,7 @@ where
             Command::Retr { .. } => Box::new(commands::Retr),
             Command::Stor { .. } => Box::new(commands::Stor),
             Command::List { .. } => Box::new(commands::List),
+            Command::Mlsd { .. } => Box::new(commands::Mlsd),
             Command::Nlst { .. } => Box::new(commands::Nlst),
             Command::Feat => Box::new(commands::Feat),
             Command::Pwd => Box::new(commands::Pwd),
