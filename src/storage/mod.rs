@@ -109,6 +109,9 @@ pub trait Metadata {
     /// Returns the last modified time of the path.
     fn modified(&self) -> Result<SystemTime>;
 
+    /// Returns the `unique` of the file.
+    fn unique(&self) -> &str;
+
     /// Returns the `gid` of the file.
     fn gid(&self) -> u32;
 
@@ -214,21 +217,28 @@ pub trait StorageBackend<U: Send> {
                 let datetime: DateTime<Utc> = file.metadata.modified().unwrap_or_else(|_| SystemTime::now()).into();
                 let modify = datetime.format("%Y%m%d%H%M%S");
 
-                if file.metadata.is_file() {
+                let result = if file.metadata.is_file() {
                     format!(
-                        "modify={};perm=adfrw;type=file;size={};UNIX.group=48;UNIX.mode=0644;UNIX.owner=48; {}\r\n",
+                        "modify={};perm=adfrw;type=file;size={};unique={};UNIX.group={};UNIX.mode=0644;UNIX.owner={}; {}\r\n",
                         modify,
                         file.metadata.len(),
+                        file.metadata.unique(),
+                        file.metadata.gid(),
+                        file.metadata.uid(),
                         file_name,
                     )
-                    .into_bytes()
                 } else {
                     format!(
-                        "modify={};perm=flcdmpe;type=dir;UNIX.group=48;UNIX.mode=0755;UNIX.owner=48; {}\r\n",
-                        modify, file_name,
+                        "modify={};perm=flcdmpe;type=dir;unique={};UNIX.group={};UNIX.mode=0755;UNIX.owner={}; {}\r\n",
+                        modify,
+                        file.metadata.unique(),
+                        file.metadata.gid(),
+                        file.metadata.uid(),
+                        file_name,
                     )
-                    .into_bytes()
-                }
+                };
+                // dbg!(&result);
+                result.into_bytes()
             })
             .concat2()
             .map(std::io::Cursor::new)

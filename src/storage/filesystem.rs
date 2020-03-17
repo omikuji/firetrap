@@ -240,6 +240,10 @@ impl Metadata for std::fs::Metadata {
         self.modified().map_err(|_| Error::from(ErrorKind::PermanentFileNotAvailable))
     }
 
+    fn unique(&self) -> &str {
+        "dummy"
+    }
+
     fn gid(&self) -> u32 {
         MetadataExt::gid(self)
     }
