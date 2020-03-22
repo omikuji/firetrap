@@ -7,6 +7,7 @@ use futures::prelude::*;
 use futures::sync::mpsc;
 use futures::Sink;
 use log::warn;
+use std::io::Read;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::net::TcpStream;
@@ -126,18 +127,23 @@ where
                         tokio::spawn(
                             storage
                                 .get(&user, path, start_pos)
-                                .and_then(|f| {
+                                .and_then(|mut f| {
                                     tx_sending
                                         .send(InternalMsg::SendingData)
                                         .map_err(|_| Error::from(ErrorKind::LocalError))
-                                        .and_then(|_| tokio_io::io::copy(f, tcp_tls_stream).map_err(|_| Error::from(ErrorKind::LocalError)))
+                                        .and_then(move |_| {
+                                            let mut out = Vec::new();
+                                            f.read_to_end(&mut out).unwrap();
+
+                                            let bytes = out.to_vec();
+                                            let bytes = if bytes.len() == 0 { vec![10] } else { bytes };
+                                            let cursor: std::io::Cursor<Vec<u8>> = std::io::Cursor::new(bytes);
+
+                                            tokio_io::io::copy(cursor, tcp_tls_stream).map_err(|_| Error::from(ErrorKind::LocalError))
+                                        })
                                         .and_then(|(reader, _, writer)| {
-                                            tx.send(InternalMsg::SendData { bytes: reader as i64 })
-                                                .map(|tmp| {
-                                                    tokio::io::shutdown(writer);
-                                                    tmp
-                                                })
-                                                .map_err(|_| Error::from(ErrorKind::LocalError))
+                                            let size = reader as i64;
+                                            tx.send(InternalMsg::SendData { bytes: size }).map_err(|_| Error::from(ErrorKind::LocalError))
                                         })
                                 })
                                 .or_else(|e| tx_error.send(InternalMsg::StorageError(e)))
